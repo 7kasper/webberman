@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>webberman — websocket api tester</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header class="topbar">
+        <div class="brand">
+            <span class="logo">⚡</span>
+            <span class="title">webberman</span>
+        </div>
+        <div class="conn-form">
+            <span class="status-dot" id="statusDot" data-state="disconnected" title="disconnected"></span>
+            <input type="text" id="urlInput" placeholder="ws://localhost:7070" value="ws://localhost:7070" spellcheck="false" autocomplete="off">
+            <div class="bank-control">
+                <span class="topbar-label" title="template bank">bank</span>
+                <select id="bankSelect" title="switch template bank"></select>
+                <button id="bankMenuBtn" class="btn ghost icon" title="bank actions" aria-haspopup="true">⋯</button>
+                <div class="popover" id="bankMenu" hidden>
+                    <button data-action="new">+ new bank</button>
+                    <button data-action="rename">rename bank</button>
+                    <button data-action="delete" class="danger">delete bank</button>
+                    <hr>
+                    <button data-action="export">↓ export bank to file</button>
+                    <button data-action="import">↑ import bank from file</button>
+                    <hr>
+                    <button data-action="export-all">↓ export everything (.json)</button>
+                    <button data-action="import-all">↑ import everything (.json)</button>
+                </div>
+            </div>
+            <button id="connectBtn" class="btn primary">connect</button>
+            <button id="clearBtn" class="btn ghost" title="clear messages">clear</button>
+        </div>
+    </header>
+
+    <main class="layout" id="layout">
+        <section class="stream-pane">
+            <div class="pane-header">
+                <span class="pane-title">messages</span>
+                <span class="counter" id="msgCounter">0</span>
+                <div class="pane-actions">
+                    <label class="toggle">
+                        <input type="checkbox" id="autoScroll" checked>
+                        <span>auto-scroll</span>
+                    </label>
+                    <button id="exportLogBtn" class="btn ghost small" title="export message log to .json">↓ export</button>
+                    <button id="importLogBtn" class="btn ghost small" title="import (append) message log from .json">↑ import</button>
+                </div>
+            </div>
+            <div class="stream" id="stream">
+                <div class="empty-hint">no messages yet — connect to a websocket to begin.</div>
+            </div>
+        </section>
+
+        <div class="splitter" id="splitter" role="separator" aria-orientation="vertical" tabindex="0"></div>
+
+        <aside class="composer-pane" id="composerPane">
+            <div class="pane-header">
+                <span class="pane-title">composer</span>
+                <div class="tabs">
+                    <button class="tab" data-mode="raw">raw</button>
+                    <button class="tab active" data-mode="composed">composed</button>
+                </div>
+            </div>
+
+            <div class="composer-body">
+                <div class="name-row">
+                    <input type="text" id="templateName" placeholder="unnamed template" spellcheck="false" autocomplete="off">
+                    <button id="newTemplateBtn" class="btn ghost small" title="new (clear composer)">+ new</button>
+                    <button id="saveTemplateBtn" class="btn ghost small" title="save / update template">save</button>
+                </div>
+
+                <div class="composer-mode hidden" id="rawMode">
+                    <div class="raw-editor">
+                        <pre class="raw-overlay" id="rawOverlay" aria-hidden="true"></pre>
+                        <textarea id="rawInput" placeholder='type a message…&#10;&#10;e.g. {"path":"/echo","params":{"msg":"hi"}}' spellcheck="false"></textarea>
+                    </div>
+                    <div class="composer-actions">
+                        <button id="formatRawBtn" class="btn ghost" title="pretty-print json">format</button>
+                        <button id="sendRawBtn" class="btn primary">send</button>
+                    </div>
+                </div>
+
+                <div class="composer-mode" id="composedMode">
+                    <div class="field">
+                        <label>path</label>
+                        <input type="text" id="composedPath" placeholder="/echo" spellcheck="false" autocomplete="off">
+                    </div>
+                    <div class="params-section">
+                        <div class="params-header">
+                            <label>params</label>
+                            <button class="btn ghost small" id="addParamBtn">+ param</button>
+                        </div>
+                        <div class="params-list" id="paramsList"></div>
+                    </div>
+                    <div class="preview-section">
+                        <label>preview</label>
+                        <pre class="preview" id="composedPreview">{}</pre>
+                    </div>
+                    <div class="composer-actions">
+                        <button id="sendComposedBtn" class="btn primary">send</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="templates-section">
+                <div class="pane-header sub">
+                    <span class="pane-title">templates</span>
+                    <span class="counter" id="tplCounter">0</span>
+                </div>
+                <div class="templates-list" id="templatesList">
+                    <div class="empty-hint small">no saved templates yet.</div>
+                </div>
+            </div>
+        </aside>
+    </main>
+
+    <div class="modal-backdrop" id="welcomeModal" hidden>
+        <div class="modal" role="dialog" aria-labelledby="welcomeTitle">
+            <button class="modal-close" id="closeWelcome" aria-label="close">✕</button>
+            <div class="modal-hero">
+                <div class="logo-mark">⚡</div>
+                <h1 id="welcomeTitle">webberman</h1>
+                <p class="tagline">a simple websocket api tester — built for json &amp; <a href="https://restn.io" target="_blank" rel="noopener">restn.io</a></p>
+            </div>
+            <div class="modal-body">
+                <p>connect to any websocket server and watch json messages stream in. compose path-based requests like restn.io expects, save them as templates, and click to fire.</p>
+                <ul>
+                    <li><strong>messages</strong> — one-line previews; click to expand into pretty-printed json.</li>
+                    <li><strong>composed mode</strong> — builds <code>{ "path": "...", "params": {...} }</code> envelopes with typed parameters.</li>
+                    <li><strong>templates</strong> — click to send, <span class="kbd">✎</span> to load &amp; edit.</li>
+                    <li><strong>errors</strong> — replies with <code>error</code> or <code>code &gt;= 400</code> are flagged red.</li>
+                </ul>
+            </div>
+            <div class="modal-footer">
+                <a href="https://kaspermuller.nl" target="_blank" rel="noopener" class="author-link">by Kasper Müller</a>
+                <button id="dismissWelcome" class="btn primary">let's go</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
