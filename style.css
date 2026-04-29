@@ -456,6 +456,73 @@ body.resizing .splitter { pointer-events: auto; }
 .j-bracket { color: var(--json-bracket); }
 .j-punct { color: var(--json-punct); }
 
+/* msg preview keeps muted look but with subtle token color */
+.msg-preview .j-key { font-weight: 500; }
+.msg-preview .j-punct { color: var(--text-muted); }
+
+/* json tree (chrome inspector style) */
+.tree-root {
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.55;
+}
+.tree-node > .tree-children,
+.tree-node > .tree-close { display: none; }
+.tree-node > .tree-head .tree-expanded-open { display: none; }
+.tree-node.expanded > .tree-head .tree-collapsed { display: none; }
+.tree-node.expanded > .tree-head .tree-expanded-open { display: inline; }
+.tree-node.expanded > .tree-children { display: block; }
+.tree-node.expanded > .tree-close { display: block; }
+
+.tree-head {
+    cursor: pointer;
+    user-select: none;
+    padding: 1px 2px;
+    border-radius: 2px;
+    transition: background 0.1s;
+}
+.tree-head:hover { background: rgba(255, 255, 255, 0.04); }
+
+.tree-arrow {
+    display: inline-block;
+    width: 12px;
+    color: var(--text-muted);
+    font-size: 9px;
+    text-align: center;
+    transition: transform 0.12s;
+    user-select: none;
+}
+.tree-node.expanded > .tree-head > .tree-arrow { transform: rotate(90deg); }
+.tree-arrow.placeholder { visibility: hidden; }
+
+.tree-leaf {
+    padding: 1px 2px 1px 14px;
+}
+
+.tree-children {
+    padding-left: 14px;
+    margin-left: 5px;
+    border-left: 1px dashed var(--border);
+}
+
+.tree-close {
+    padding: 1px 2px 1px 14px;
+}
+
+.tree-count {
+    color: var(--text-muted);
+    font-size: 11px;
+    margin-left: 4px;
+    font-style: italic;
+}
+.tree-ellipsis {
+    color: var(--text-muted);
+    padding: 0 3px;
+}
+.tree-index {
+    opacity: 0.7;
+}
+
 /* composer */
 .composer-body {
     flex-shrink: 0;

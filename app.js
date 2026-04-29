@@ -95,6 +95,92 @@
         return out;
     };
 
+    // ===== json tree (interactive, collapsible) =====
+    const formatPrimitive = (value) => {
+        if (value === null) return `<span class="j-null">null</span>`;
+        if (typeof value === 'boolean') return `<span class="j-bool">${value}</span>`;
+        if (typeof value === 'number') return `<span class="j-number">${value}</span>`;
+        if (typeof value === 'string') return `<span class="j-string">${escapeHtml(JSON.stringify(value))}</span>`;
+        return escapeHtml(String(value));
+    };
+
+    const formatKeyPrefix = (key, isArrayIndex) => {
+        if (key === null) return '';
+        if (isArrayIndex) {
+            return `<span class="j-number tree-index">${key}</span><span class="j-punct">:</span> `;
+        }
+        return `<span class="j-key">"${escapeHtml(key)}"</span><span class="j-punct">:</span> `;
+    };
+
+    const inlineSummary = (value) => {
+        if (value === null || typeof value !== 'object') return formatPrimitive(value);
+        const isArray = Array.isArray(value);
+        const count = isArray ? value.length : Object.keys(value).length;
+        if (count === 0) return `<span class="j-bracket">${isArray ? '[]' : '{}'}</span>`;
+        const noun = isArray
+            ? (count === 1 ? 'item' : 'items')
+            : (count === 1 ? 'key' : 'keys');
+        return `<span class="j-bracket">${isArray ? '[' : '{'}</span><span class="tree-ellipsis">…</span><span class="j-bracket">${isArray ? ']' : '}'}</span> <span class="tree-count">${count} ${noun}</span>`;
+    };
+
+    const renderJsonTree = (value, keyLabel = null, isArrayIndex = false, expandedDefault = false, trailingComma = false) => {
+        const isObj = value !== null && typeof value === 'object';
+        const trail = trailingComma ? '<span class="j-punct">,</span>' : '';
+
+        if (!isObj) {
+            const row = document.createElement('div');
+            row.className = 'tree-leaf';
+            row.innerHTML = formatKeyPrefix(keyLabel, isArrayIndex) + formatPrimitive(value) + trail;
+            return row;
+        }
+
+        const isArray = Array.isArray(value);
+        const open = isArray ? '[' : '{';
+        const close = isArray ? ']' : '}';
+        const entries = isArray
+            ? value.map((v, i) => [i, v, true])
+            : Object.entries(value).map(([k, v]) => [k, v, false]);
+        const count = entries.length;
+
+        const node = document.createElement('div');
+        node.className = 'tree-node';
+        if (expandedDefault && count > 0) node.classList.add('expanded');
+
+        const head = document.createElement('div');
+        head.className = 'tree-head';
+
+        const arrow = count === 0
+            ? `<span class="tree-arrow placeholder"></span>`
+            : `<span class="tree-arrow">▶</span>`;
+
+        const collapsed = `<span class="tree-collapsed">${inlineSummary(value)}${trail}</span>`;
+        const expandedOpen = `<span class="tree-expanded-open"><span class="j-bracket">${open}</span></span>`;
+
+        head.innerHTML = arrow + formatKeyPrefix(keyLabel, isArrayIndex) + collapsed + expandedOpen;
+        node.appendChild(head);
+
+        if (count > 0) {
+            const children = document.createElement('div');
+            children.className = 'tree-children';
+            entries.forEach(([k, v, isArrIdx], i) => {
+                children.appendChild(renderJsonTree(v, k, isArrIdx, false, i < count - 1));
+            });
+            node.appendChild(children);
+
+            const closeRow = document.createElement('div');
+            closeRow.className = 'tree-close';
+            closeRow.innerHTML = `<span class="j-bracket">${close}</span>${trail}`;
+            node.appendChild(closeRow);
+
+            head.addEventListener('click', (e) => {
+                e.stopPropagation();
+                node.classList.toggle('expanded');
+            });
+        }
+
+        return node;
+    };
+
     const isErrorResponse = (parsed) => {
         if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return false;
         if (parsed.error !== undefined && parsed.error !== null && parsed.error !== false) return true;
@@ -290,12 +376,10 @@
         const isJson = parsed !== null;
         const isError = dir === 'in' && isErrorResponse(parsed);
 
-        const preview = isJson
-            ? (() => {
-                const s = JSON.stringify(parsed);
-                return s.length > PREVIEW_LIMIT ? s.slice(0, PREVIEW_LIMIT) + '…' : s;
-            })()
-            : (text.length > PREVIEW_LIMIT ? text.slice(0, PREVIEW_LIMIT) + '…' : text);
+        const previewSrc = isJson ? JSON.stringify(parsed) : text;
+        const previewText = previewSrc.length > PREVIEW_LIMIT
+            ? previewSrc.slice(0, PREVIEW_LIMIT) + '…'
+            : previewSrc;
 
         const msg = document.createElement('div');
         msg.className = 'msg' + (isError ? ' error' : '');
@@ -313,14 +397,22 @@
             <span class="msg-preview"></span>
             <span class="msg-toggle">▶</span>
         `;
-        header.querySelector('.msg-preview').textContent = preview;
+        const previewEl = header.querySelector('.msg-preview');
+        if (isJson) previewEl.innerHTML = tokenizeJson(previewText);
+        else previewEl.textContent = previewText;
 
         const body = document.createElement('div');
         body.className = 'msg-body';
-        const pre = document.createElement('pre');
-        if (isJson) pre.innerHTML = highlightJson(parsed);
-        else pre.textContent = text;
-        body.appendChild(pre);
+        if (isJson) {
+            const tree = document.createElement('div');
+            tree.className = 'tree-root';
+            tree.appendChild(renderJsonTree(parsed, null, false, true));
+            body.appendChild(tree);
+        } else {
+            const pre = document.createElement('pre');
+            pre.textContent = text;
+            body.appendChild(pre);
+        }
 
         header.addEventListener('click', () => msg.classList.toggle('expanded'));
 
