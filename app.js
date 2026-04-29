@@ -8,6 +8,7 @@
     const MIN_COMPOSER_WIDTH = 260;
     const MAX_COMPOSER_WIDTH = 900;
     const PREVIEW_LIMIT = 240;
+    const RETRY_DELAY_MS = 3000;
 
     const $ = (id) => document.getElementById(id);
 
@@ -25,6 +26,9 @@
     let lastUrl = persisted.lastUrl;
     let welcomeDismissed = persisted.welcomeDismissed;
     let composerWidth = persisted.composerWidth;
+    let autoConnect = persisted.autoConnect;
+    let retryHandle = null;
+    let userClosed = false;
 
     // ===== utils =====
     const formatTime = (t) => {
@@ -202,6 +206,7 @@
             lastUrl: null,
             welcomeDismissed: false,
             composerWidth: DEFAULT_COMPOSER_WIDTH,
+            autoConnect: false,
         };
         try {
             const raw = localStorage.getItem(STORAGE_KEY);
@@ -231,6 +236,7 @@
                 lastUrl: typeof p.lastUrl === 'string' && p.lastUrl ? p.lastUrl : null,
                 welcomeDismissed: !!p.welcomeDismissed,
                 composerWidth: clampWidth(typeof p.composerWidth === 'number' ? p.composerWidth : DEFAULT_COMPOSER_WIDTH),
+                autoConnect: !!p.autoConnect,
             };
         } catch {
             return empty;
@@ -255,6 +261,7 @@
         lastUrl,
         welcomeDismissed,
         composerWidth,
+        autoConnect,
     });
 
     const persist = () => {
@@ -279,6 +286,21 @@
     };
 
     // ===== connection =====
+    const cancelRetry = () => {
+        if (retryHandle) { clearTimeout(retryHandle); retryHandle = null; }
+    };
+
+    const scheduleRetry = () => {
+        cancelRetry();
+        retryHandle = setTimeout(() => {
+            retryHandle = null;
+            if (!autoConnect || userClosed) return;
+            if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+            addEvent('event', '↻ auto-reconnecting…');
+            connect();
+        }, RETRY_DELAY_MS);
+    };
+
     const connect = () => {
         const url = $('urlInput').value.trim();
         if (!url) return;
@@ -286,10 +308,14 @@
             return disconnect();
         }
 
+        userClosed = false;
+        cancelRetry();
+
         try {
             ws = new WebSocket(url);
         } catch (err) {
             addEvent('error', `failed to connect: ${err.message}`);
+            if (autoConnect) scheduleRetry();
             return;
         }
 
@@ -318,6 +344,7 @@
             const reason = e.reason ? ` reason="${e.reason}"` : '';
             addEvent('event', `✕ closed (code=${e.code}${reason})`);
             ws = null;
+            if (autoConnect && !userClosed) scheduleRetry();
         });
 
         ws.addEventListener('error', () => {
@@ -327,8 +354,24 @@
     };
 
     const disconnect = () => {
+        userClosed = true;
+        cancelRetry();
         if (ws) {
             try { ws.close(1000, 'client closing'); } catch {}
+        }
+    };
+
+    const toggleAutoConnect = () => {
+        autoConnect = !autoConnect;
+        $('autoConnectBtn').classList.toggle('active', autoConnect);
+        persist();
+        if (autoConnect) {
+            userClosed = false;
+            if (!ws || ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
+                connect();
+            }
+        } else {
+            cancelRetry();
         }
     };
 
@@ -1076,6 +1119,8 @@
         $('connectBtn').addEventListener('click', connect);
         $('clearBtn').addEventListener('click', clearStream);
         $('urlInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') connect(); });
+        $('autoConnectBtn').addEventListener('click', toggleAutoConnect);
+        $('autoConnectBtn').classList.toggle('active', autoConnect);
 
         $('exportLogBtn').addEventListener('click', exportLog);
         $('importLogBtn').addEventListener('click', importLog);
@@ -1166,6 +1211,9 @@
         updatePreview();
         updateRawOverlay();
         setStatus('disconnected', 'disconnected');
+
+        // auto-connect on load
+        if (autoConnect) connect();
 
         // storage health check — warn if browser is blocking persistent storage
         if (!verifyStorage()) {

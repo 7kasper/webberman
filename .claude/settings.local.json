@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(node --check app.js)"
+      "Bash(node --check app.js)",
+      "Bash(start \"\" \"c:\\\\Edit\\\\webberman\\\\index.html\")"
     ]
   }
 }

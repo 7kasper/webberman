@@ -153,6 +153,26 @@ input:focus, textarea:focus {
     font-size: 13px;
     line-height: 1;
 }
+
+#autoConnectBtn::before {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    margin-right: 6px;
+    vertical-align: middle;
+    transition: background 0.15s, box-shadow 0.15s;
+}
+#autoConnectBtn.active {
+    color: var(--text);
+    border-color: var(--accent-strong);
+}
+#autoConnectBtn.active::before {
+    background: var(--success);
+    box-shadow: 0 0 6px rgba(95, 200, 158, 0.6);
+}
 .btn.danger { color: var(--error); }
 .btn.danger:hover { background: rgba(255, 107, 107, 0.1); }
 
