@@ -733,8 +733,10 @@
         templates.forEach((tpl, idx) => {
             const item = document.createElement('div');
             item.className = 'template-item' + (tpl.id === currentTemplateId ? ' active' : '');
+            item.dataset.idx = String(idx);
             const display = tpl.kind === 'raw' ? '(raw)' : (tpl.path || '/');
             item.innerHTML = `
+                <span class="drag-handle" title="drag to reorder">≡</span>
                 <span class="template-name"></span>
                 <span class="template-path"></span>
                 <span class="send-hint">click to send</span>
@@ -745,10 +747,10 @@
             `;
             item.querySelector('.template-name').textContent = tpl.name;
             item.querySelector('.template-path').textContent = display;
-            item.title = 'click to send · ✎ to load into composer';
+            item.title = 'click to send · ✎ to load into composer · ≡ to drag';
 
             item.addEventListener('click', (e) => {
-                if (e.target.closest('.template-actions')) return;
+                if (e.target.closest('.template-actions') || e.target.closest('.drag-handle')) return;
                 sendTemplate(tpl);
             });
             item.querySelector('.load').addEventListener('click', (e) => {
@@ -762,6 +764,47 @@
                 persist();
                 renderTemplates();
             });
+
+            // drag-reorder: only initiate when grabbing the handle
+            const handle = item.querySelector('.drag-handle');
+            handle.addEventListener('mousedown', () => { item.draggable = true; });
+            handle.addEventListener('mouseup', () => { item.draggable = false; });
+            item.addEventListener('dragstart', (e) => {
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', String(idx));
+                item.classList.add('dragging');
+            });
+            item.addEventListener('dragend', () => {
+                item.draggable = false;
+                document.querySelectorAll('.template-item').forEach(el => {
+                    el.classList.remove('dragging', 'drag-over-top', 'drag-over-bottom');
+                });
+            });
+            item.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                const rect = item.getBoundingClientRect();
+                const above = (e.clientY - rect.top) < rect.height / 2;
+                item.classList.toggle('drag-over-top', above);
+                item.classList.toggle('drag-over-bottom', !above);
+            });
+            item.addEventListener('dragleave', () => {
+                item.classList.remove('drag-over-top', 'drag-over-bottom');
+            });
+            item.addEventListener('drop', (e) => {
+                e.preventDefault();
+                const fromIdx = parseInt(e.dataTransfer.getData('text/plain'), 10);
+                if (isNaN(fromIdx) || fromIdx === idx) return;
+                const rect = item.getBoundingClientRect();
+                const above = (e.clientY - rect.top) < rect.height / 2;
+                let toIdx = above ? idx : idx + 1;
+                const [moved] = templates.splice(fromIdx, 1);
+                if (fromIdx < toIdx) toIdx--;
+                templates.splice(toIdx, 0, moved);
+                persist();
+                renderTemplates();
+            });
+
             list.appendChild(item);
         });
     };

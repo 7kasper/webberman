@@ -736,6 +736,7 @@ body.resizing .splitter { pointer-events: auto; }
 }
 
 .template-item {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -746,6 +747,31 @@ body.resizing .splitter { pointer-events: auto; }
     cursor: pointer;
     transition: border-color 0.15s, background 0.15s;
 }
+.template-item .drag-handle {
+    color: var(--text-muted);
+    font-size: 14px;
+    line-height: 1;
+    cursor: grab;
+    flex-shrink: 0;
+    padding: 0 2px;
+    user-select: none;
+}
+.template-item .drag-handle:hover { color: var(--text); }
+.template-item .drag-handle:active { cursor: grabbing; }
+.template-item.dragging { opacity: 0.4; }
+.template-item.drag-over-top::before,
+.template-item.drag-over-bottom::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--accent-strong);
+    border-radius: 1px;
+    pointer-events: none;
+}
+.template-item.drag-over-top::before { top: -3px; }
+.template-item.drag-over-bottom::after { bottom: -3px; }
 .template-item:hover {
     border-color: var(--border-strong);
     background: var(--bg-elev-2);
